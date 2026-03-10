@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SyncSpace Debugger</title>
+</head>
+<body>
+    <h1>SyncSpace Socket Test</h1>
+    <p>Check your Server Terminal. Do you see "User connected"?</p>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <script>
+        // 1. Connect to our server
+        const socket = io('http://localhost:3000');
+
+        // 2. Listen for connection success
+        socket.on('connect', () => {
+            console.log('I am connected with ID:', socket.id);
+        });
+    </script>
+</body>
+</html>
