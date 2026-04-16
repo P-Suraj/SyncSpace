@@ -1,75 +1,60 @@
-# SyncSpace 🖥️
+# SyncSpace 🚀
 
-A real-time collaborative code editor I'm actively building to understand how tools like 
-VS Code Live Share actually work under the hood. The core challenge I'm exploring: how do 
-you let multiple people edit the same file simultaneously without their changes conflicting or overwriting each other?
+![SyncSpace Hero](https://via.placeholder.com/1200x400/1e1e1e/ffffff?text=SyncSpace+Collaborative+IDE)
 
-> ⚠️ Active Development — core WebSocket sync is working, CRDT integration in progress.
+SyncSpace is a **real-time collaborative coding environment and Cloud IDE**. Built with a high-performance distributed architecture, it allows multiple developers to edit, switch languages, and execute code simultaneously in the same virtual room without collisions or latency bottlenecks.
 
-## Why I built this
-
-After using VS Code Live Share during a group project, I got curious about the engineering behind it. 
-How does it handle two people typing in the same line at the same time? 
-What prevents one person's edit from destroying another's? 
-That rabbit hole led me to distributed systems, CRDTs, and operational transforms — 
-and I decided the best way to actually understand it was to build it myself.
-
-## What it does (so far)
-
-- Real-time bidirectional communication between multiple clients via WebSockets
-- Decoupled client/server architecture with Node.js and Express backend
-- VS Code-like code editing experience using Monaco Editor
-- React frontend with live state synchronization across sessions
-
-## What's being built next
-
-- **CRDT sync via Yjs** — resolving concurrent edits mathematically so no conflict resolution logic is needed
-- **Redis pub/sub** — scaling the backend across multiple server instances
-- **Docker** — containerizing the full stack for consistent deployment
-
-## Tech Stack
-
-- **Backend:** Node.js, Express.js, Socket.io
-- **Frontend:** React, Monaco Editor
-- **Sync Engine:** Yjs (CRDTs) — in progress
-- **Scalability:** Redis pub/sub, Docker — planned
-- **Architecture:** Decoupled client/server, event-driven WebSocket communication
-
-## How it works
-
-1. Client connects to the server via a persistent WebSocket (Socket.io handshake)
-2. Any keystroke or edit event is emitted to the server instantly
-3. Server broadcasts the change to all other connected clients in the same session
-4. *(In progress)* Yjs CRDT layer will intercept concurrent edits and merge them 
-   mathematically before broadcasting — eliminating conflicts without locking
-
-## The hard problem I'm solving
-
-Standard WebSocket broadcasting works fine when edits don't overlap. 
-But what happens when User A and User B type in the exact same position at the exact same millisecond? 
-One edit will overwrite the other. CRDTs (Conflict-free Replicated Data Types) solve this by 
-representing every character as a unique node in a directed graph — so two simultaneous edits 
-can always be merged deterministically, regardless of order.
-
-This is the core problem I'm currently implementing with Yjs.
-
-## What I'm learning
-
-- How WebSocket lifecycle management works (handshake, heartbeat, disconnection handling)
-- Why CRDTs are preferred over Operational Transforms for modern collaborative editors
-- How Redis pub/sub enables a single logical "room" to span multiple server instances
-- The difference between eventual consistency and strong consistency in distributed systems
-
-## Setup
-```bash
-git clone https://github.com/P-Suraj/syncspace.git
-cd syncspace
-npm install
-node index.js
-# Open http://localhost:3000 in two browser tabs to test real-time sync
-```
+Designed to mirror the core collaborative logic behind tools like *VS Code Live Share* and *Google Docs*, SyncSpace pushes beyond basic text broadcasting by implementing a deterministic **Conflict-Free Replicated Data Type (CRDT)** architecture backed by resilient on-disk persistence.
 
 ---
 
-Built by Suraj — 2nd year CSE @ Amrita Vishwa Vidyapeetham  
-*Actively in development — follow the repo to see it evolve.*
+## 🛠️ System Architecture
+
+### Why WebSockets + Yjs (CRDTs)?
+Traditional collaborative editors rely on standard database polling or Operational Transformation (OT), which requires a complex, central "source of truth" server to sequence edits and resolve locking conflicts. If two users type at the exact same millisecond, OT architectures often struggle or require heavy locking.
+
+**SyncSpace fundamentally bypasses this using CRDTs via Yjs:**
+* **Mathematical Conflict Resolution:** Every character and state map is locally appended as a mathematical graph node. Concurrent edits are deterministically merged without central mediation.
+* **WebSocket Relaying:** The Express/Node.js backend does not process logic; it acts purely as a low-latency sub/pub relay, forwarding binary buffers via native `ws` WebSockets.
+* **Decoupled State Trees:** We utilize isolated Yjs structures (`Y.Text` for the Monaco Editor and `Y.Map` for the active language state) to prevent cascading re-renders when modifying IDE settings.
+
+### LevelDB Fault Tolerance & Persistence
+CRDT memory arrays are incredibly fast but volatile. We integrated the `y-leveldb` adapter directly into the `y-websocket` binary stream.
+* **Incremental Disk Flushes:** Rather than uploading massive text blobs, the active Yjs Document incrementally flushes compressed differential updates to a local `./storage` LevelDB instance.
+* **Server Resilience:** If the Node.js relay server unexpectedly restarts or crashes, the master document is dynamically recovered from LevelDB before accepting new WebSocket topologies, ensuring zero data loss.
+
+### Code Execution via Piston API
+To convert SyncSpace from a text-sync engine into a functional IDE, we implemented a secure frontend gateway to the **Piston API Engine**.
+* When a user selects *JavaScript, Python, or C++*, the room's overarching `Y.Map` syncs the layout identically to all clients.
+* When the user hits "Run Code", the raw `Y.Text` is parsed and executed inside an isolated, remote Dockerized sandbox container, streaming `stdout` and `stderr` back into our custom terminal UI dynamically.
+
+---
+
+## 🚀 Getting Started
+
+The application uses an explicit client-server decoupled architecture. You will need to start both environments.
+
+### 1. Start the Relay API (Backend)
+```bash
+cd server
+npm install
+npm start
+```
+*The server automatically detects if the `FRONTEND_URL` environment variable is present for dynamic CORS or binds to `http://localhost:5173` strictly during local dev.*
+
+### 2. Start the Collaborative IDE (Frontend)
+Open a new terminal window:
+```bash
+cd client
+npm install
+npm run dev
+```
+
+### 3. Open your Rooms
+- Navigate your browser to `http://localhost:5173`.
+- Open an incognito window and navigate to the same address.
+- Begin typing in one window and watch the real-time CRDT propagation and cursor awareness stream flawlessly!
+
+---
+
+*Architected and developed by Suraj Pandavula.*
